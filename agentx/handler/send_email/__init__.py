@@ -9,7 +9,7 @@ from ssl import SSLContext
 from typing import Any
 
 from agentx.handler.base import BaseHandler
-from agentx.handler.send_email.exceptions import SendEmailFailed, InvalidEmailAction
+from agentx.handler.send_email.exceptions import SendEmailFailed, InvalidEmailAction, RuntimeError
 
 
 class EmailAction(str, Enum):
