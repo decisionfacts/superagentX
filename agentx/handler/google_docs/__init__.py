@@ -87,3 +87,10 @@ class DocsHandler(BaseHandler):
     # create_doc(title="Test Vijay Docs")
     # read_doc(documentId="1VGr3QQYuqoNgKV8HDt3jeObotPT3ko3RxDW2mMxQA1k")
     # update_doc(documentId="1VGr3QQYuqoNgKV8HDt3jeObotPT3ko3RxDW2mMxQA1k", text="hello ", line_index=1)
+
+    def __dir__(self):
+        return (
+            'create_doc',
+            'read_doc',
+            'update_doc'
+        )
