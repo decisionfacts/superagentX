@@ -107,3 +107,64 @@ class SendEmailHandler(BaseHandler):
         except Exception as e:
             raise SendEmailFailed(f"Failed to send email!\n{e}")
 
+    async def ahandle(  
+            self,
+            *,
+            action: str | Enum,
+            **kwargs
+    ) -> Any:
+        if isinstance(action, str):
+            action = action.lower()
+        match action:
+            case EmailAction.SEND:
+                return await self.send_email(**kwargs)
+            case EmailAction.READ:
+                raise NotImplementedError
+            case _:
+                raise InvalidEmailAction(f"Invalid email action `{action}`")
+
+    async def asend_email(
+            self,
+            *,
+            sender: str,
+            to: list[str],
+            subject: str,
+            body: str,
+            from_name: str | None = None,
+            cc: list[str] | None = None,
+            bcc: list[str] | None = None,
+            attachment_path: str | None = None
+    ):
+        try:
+            msg = EmailMessage()
+            msg['From'] = f"{from_name} <{sender}>"
+            msg['To'] = ', '.join(to)
+            msg['Cc'] = ', '.join(cc) if cc else ''
+            msg['Bcc'] = ', '.join(bcc) if bcc else ''
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(body, 'plain'))
+
+            if attachment_path:
+                attachment_name = os.path.basename(attachment_path)
+                async with open(attachment_path, "rb") as attachment:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f"attachment; filename= {attachment_name}")
+                    msg.attach(part)
+
+            all_recipients = to + (cc or []) + (bcc or [])
+
+            if self.username and self.password:
+                self._conn.login(user=self.username, password=self.password)
+
+            res = await self._conn.sendmail(
+                from_addr=sender,
+                to_addrs=all_recipients,
+                msg=msg.as_string()
+            )
+            self._conn.close()
+            return await res
+        except Exception as e:
+            raise SendEmailFailed(f"Failed to send email!\n{e}")

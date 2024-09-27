@@ -27,7 +27,7 @@ class EmailReader(BaseHandler):
         self.imap_password = imap_password
         self.imap = None
 
-    def handle(
+    async def handle(
             self,
             *,
             action: str | Enum,
