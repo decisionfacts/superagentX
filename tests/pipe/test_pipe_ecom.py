@@ -1,21 +1,21 @@
-import logging
 import os
 
 import pytest
 
 from agentx.agent.agent import Agent
 from agentx.agent.engine import Engine
+from agentx.handler.ai_handler import AIHandler
 from agentx.handler.ecommerce.amazon import AmazonHandler
 from agentx.handler.ecommerce.flipkart import FlipkartHandler
+from agentx.io import IOConsole
 from agentx.llm import LLMClient
+from agentx.pipe import AgentXPipe
 from agentx.prompt import PromptTemplate
-
-logger = logging.getLogger(__name__)
 
 '''
  Run Pytest:  
 
-   1. pytest --log-cli-level=INFO tests/agent/test_agent.py::TestEcommerceAgent::test_ecommerce_agent
+   1. pytest --log-cli-level=INFO tests/pipe/test_pipe_ecommerce.py::TestEcommercePipe::test_ecom_pipe
 '''
 
 
@@ -28,9 +28,9 @@ def agent_client_init() -> dict:
     return response
 
 
-class TestEcommerceAgent:
+class TestEcommercePipe:
 
-    async def test_ecommerce_agent(self, agent_client_init: dict):
+    async def test_ecom_pipe(self, agent_client_init: dict):
         llm_client: LLMClient = agent_client_init.get('llm')
         amazon_ecom_handler = AmazonHandler(
             api_key=os.getenv('RAPID_API_KEY'),
@@ -38,6 +38,9 @@ class TestEcommerceAgent:
         )
         flipkart_ecom_handler = FlipkartHandler(
             api_key=os.getenv('RAPID_API_KEY'),
+        )
+        ai_handler = AIHandler(
+            llm=llm_client
         )
         prompt_template = PromptTemplate()
         amazon_engine = Engine(
@@ -50,16 +53,32 @@ class TestEcommerceAgent:
             llm=llm_client,
             prompt_template=prompt_template
         )
+        ai_engine = Engine(
+            handler=ai_handler,
+            llm=llm_client,
+            prompt_template=prompt_template
+        )
         ecom_agent = Agent(
+            name="Ecom Agent",
             goal="Get me the best search results",
             role="You are the best product searcher",
             llm=llm_client,
             prompt_template=prompt_template,
-            engines=[amazon_engine, flipkart_engine]
+            engines=[[amazon_engine, flipkart_engine]]
         )
-        result = await ecom_agent.execute(
-            query_instruction="Get me a mobile phone which has rating 4 out of 5 and camera minimum 30 MP compare the"
-                              " prices with photo link"
+        price_review_agent = Agent(
+            name="Price Review Agent",
+            goal="Get me the best one from the given context",
+            role="You are the price reviewer",
+            llm=llm_client,
+            prompt_template=prompt_template,
+            engines=[ai_engine]
         )
-        logger.info(f'Result ==> {result}')
-        assert result
+        pipe = AgentXPipe(
+            io=IOConsole(
+                read_phrase="\n\n\nEnter your query here:\n\n=>",
+                write_phrase="\n\n\nYour result is =>\n\n"
+            ),
+            agents=[ecom_agent, price_review_agent]
+        )
+        await pipe.flow()
